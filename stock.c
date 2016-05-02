@@ -16,7 +16,7 @@ typedef struct
 	pthread_t	thread_store;
 	pthread_t	thread_clients[NB_CLIENTS];
 
-	pthread_mutex_t mutex_stock = ;
+	pthread_mutex_t mutex_stock;
 }
 store_t;
 
@@ -41,7 +41,7 @@ static void *fn_store (void *p_data)
 	while (1)
 	{
 		/* debut de la zone protegee */
-		prhread_mutex_lock(&store.mutex_stock)
+		pthread_mutex_lock(&store.mutex_stock);
 		if (store.stock <= 0)
 		{
 			store.stock = INITIAL_STOCK;
@@ -60,7 +60,7 @@ static void *fn_clients(void *p_data)
 
 	while (1)
 	{
-		prhread_mutex_lock(&store.mutex_stock)
+		pthread_mutex_lock(&store.mutex_stock);
 		int val = get_random(6);
 		psleep(get_random(3));
 		store.stock = store.stock - val;
