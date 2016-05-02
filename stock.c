@@ -1,3 +1,6 @@
+/* Code from tuto http://franckh.developpez.com/tutoriels/posix/pthreads/ please do not copy check link for more infos */
+/* I'm not the author of this code I just followed a very good tutorial from Franck Hecht on pthread */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,6 +20,8 @@ typedef struct
 	pthread_t	thread_clients[NB_CLIENTS];
 
 	pthread_mutex_t mutex_stock;
+	pthread_cond_t cond_stock;
+	pthread_cond_t cond_clients;
 }
 store_t;
 
@@ -24,6 +29,8 @@ static store_t store =
 {
 	.stock = INITIAL_STOCK,
 	.mutex_stock = PTHREAD_MUTEX_INITIALIZER,
+	.cond_stock = PTHREAD_COND_INITIALIZER,
+	.cond_clients = PTHREAD_COND_INITIALIZER,
 };
 
 static	int get_random(int max)
@@ -42,12 +49,13 @@ static void *fn_store (void *p_data)
 	{
 		/* debut de la zone protegee */
 		pthread_mutex_lock(&store.mutex_stock);
-		if (store.stock <= 0)
-		{
-			store.stock = INITIAL_STOCK;
-			printf("Remplissage du stock de %d articles !\n", store.stock);
-		}
+		pthread_cond_wait(&store.cond_stock, &store.mutex_stock);
+
+		store.stock = INITIAL_STOCK;
+		printf("Remplissage du stock de %d articles !\n", store.stock);
+
 		/* fin de la zone protege */
+		pthread_cond_signal(&store.cond_clients);
 		pthread_mutex_unlock(&store.mutex_stock);
 	}
 	return NULL;
@@ -60,9 +68,14 @@ static void *fn_clients(void *p_data)
 
 	while (1)
 	{
-		pthread_mutex_lock(&store.mutex_stock);
 		int val = get_random(6);
 		psleep(get_random(3));
+		pthread_mutex_lock(&store.mutex_stock);
+		if (val > store.stock)
+		{
+			pthread_cond_signal(&store.cond_stock);
+			pthread_cond_wait(&store.cond_clients, &store.mutex_stock);
+		}
 		store.stock = store.stock - val;
 		printf("Client %d prend %d du stock, reste, %d en stock!\n",
 				nb, val, store.stock);
